@@ -1,0 +1,140 @@
+#!/bin/sh
+
+# PROVIDE: zfs_encrypted
+# REQUIRE: zfs
+# KEYWORD: nostart shutdown
+
+. /etc/rc.subr
+name="zfs_encrypted"
+rcvar="zfs_encrypted_enable"
+
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
+
+load_rc_config ${name}
+: ${zfs_encrypted_enable:=no}
+
+zfs_encrypted_geli_attach(){
+	zpool="$1"
+	eval "geli_devices=\${${name}_${zpool}_geli_devices}"
+
+	for geli_device in ${geli_devices}
+	do
+		if [ -e ${geli_device}.eli ]
+		then
+			info "Skipping ${geli_device} as it appears to already be attached"
+		else
+			info "Attaching geli volume ${geli_device}" 
+			eval "geli_flags=\${${name}_${zpool}_geli_flags}"
+			if geli attach ${geli_flags} ${geli_device}
+			then
+				info "Successfully attached ${geli_device}"
+			else
+				err 1 "Failed to attach ${geli_device}"
+			fi
+		fi
+	done
+}
+
+zfs_encrypted_geli_detach(){
+	zpool="$1"
+	eval "geli_devices=\${${name}_${zpool}_geli_devices}"
+
+	for geli_device in ${geli_devices}
+	do
+		info "Detaching geli volume $geli_device" 
+		if geli detach $geli_device.eli
+		then
+			info "Successfully detached $geli_device"
+		else
+			warn "Failed to detach $geli_device"
+		fi
+	done
+}
+
+zfs_encrypted_zpool_exists(){
+	zpool="$1"
+	zpool status ${zpool} 2>1 > /dev/null
+	return $?
+}
+
+zfs_encrypted_export_zpool(){
+	zpool="$1"
+
+	if zfs_encrypted_zpool_exists ${zpool}
+	then
+		info "Exporting zpool ${zpool}"
+		zpool export ${zpool}
+		if zfs_encrypted_zpool_exists ${zpool}
+		then
+			err 1 "zpool ${zpool} not exported" 
+		else
+			info "zpool ${zpool} successfully exported"
+		fi
+	else
+		info "zpool ${zpool} is already exported"
+	fi
+}
+
+zfs_encrypted_import_zpool(){
+	zpool="$1"
+
+	info "Importing zpool ${zpool}"
+	zpool import ${zpool}
+
+	if zfs_encrypted_zpool_exists ${zpool}
+	then
+		info "Successfully imported zpool ${zpool}"
+		zpool status ${zpool}
+	else
+		err 1 "Failed to import zpool ${zpool}"
+	fi
+}
+
+zfs_encrypted_start_zpool(){
+	zpool="$1"
+
+	if zfs_encrypted_zpool_exists ${zpool}
+	then
+		zfs_encrypted_export_zpool ${zpool}
+	fi
+
+	zfs_encrypted_geli_attach ${zpool}
+	zfs_encrypted_import_zpool ${zpool}
+}
+
+zfs_encrypted_stop_zpool(){
+	zpool="$1"
+	zfs_encrypted_export_zpool ${zpool}
+	zfs_encrypted_geli_detach ${zpool}
+}
+
+zfs_encrypted_start(){
+	info "Starting ${name}"
+
+	if [ $# -gt 0 ]
+	then
+		zfs_encrypted_zpools="$@"
+	fi
+
+	for zpool in ${zfs_encrypted_zpools}
+	do
+		zfs_encrypted_start_zpool $zpool
+	done
+}
+
+zfs_encrypted_stop(){
+	info "Stopping ${name}"
+
+	if [ $# -gt 0 ]
+	then
+		zfs_encrypted_zpools="$@"
+	fi
+
+	for zpool in ${zfs_encrypted_zpools}
+	do
+		zfs_encrypted_stop_zpool $zpool
+	done
+}
+
+run_rc_command "$@"

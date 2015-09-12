@@ -1,0 +1,4 @@
+zfs_encrypted_enable="YES"
+zfs_encrypted_zpools="data"
+zfs_encrypted_data_geli_flags="-k /root/data.key"
+zfs_encrypted_data_geli_devices="/dev/gpt/disk2 /dev/gpt/disk3 /dev/gpt/disk4 /dev/gpt/disk5"
