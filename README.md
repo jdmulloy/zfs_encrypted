@@ -19,7 +19,7 @@ Optionally pass extra flags to geli, variable name is zfs_encrypted_${pool}_geli
 
 ## Geli devices
     zfs_encrypted_data_geli_devices="/dev/gpt/disk2 /dev/gpt/disk3 /dev/gpt/disk4 /dev/gpt/disk5"
-List raw devices that are encrypted by geli. Vriable name is zfs_encrypted_${pool}_geli_devices
+List raw devices that are encrypted by geli. Variable name is zfs_encrypted_${pool}_geli_devices
 
 # Usage
     service zfs_encrypted start
