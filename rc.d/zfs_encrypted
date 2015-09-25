@@ -36,51 +36,18 @@ zfs_encrypted_geli_attach(){
 	done
 }
 
-zfs_encrypted_geli_detach(){
-	zpool="$1"
-	eval "geli_devices=\${${name}_${zpool}_geli_devices}"
-
-	for geli_device in ${geli_devices}
-	do
-		info "Detaching geli volume $geli_device" 
-		if geli detach $geli_device.eli
-		then
-			info "Successfully detached $geli_device"
-		else
-			warn "Failed to detach $geli_device"
-		fi
-	done
-}
-
 zfs_encrypted_zpool_exists(){
 	zpool="$1"
 	zpool status ${zpool} 2>1 > /dev/null
 	return $?
 }
 
-zfs_encrypted_export_zpool(){
-	zpool="$1"
-
-	if zfs_encrypted_zpool_exists ${zpool}
-	then
-		info "Exporting zpool ${zpool}"
-		zpool export ${zpool}
-		if zfs_encrypted_zpool_exists ${zpool}
-		then
-			err 1 "zpool ${zpool} not exported" 
-		else
-			info "zpool ${zpool} successfully exported"
-		fi
-	else
-		info "zpool ${zpool} is already exported"
-	fi
-}
-
 zfs_encrypted_import_zpool(){
 	zpool="$1"
 
 	info "Importing zpool ${zpool}"
-	zpool import ${zpool}
+	# Set cachefile none to prevent automount on boot
+	zpool import -o cachefile=none ${zpool}
 
 	if zfs_encrypted_zpool_exists ${zpool}
 	then
@@ -96,7 +63,7 @@ zfs_encrypted_start_zpool(){
 
 	if zfs_encrypted_zpool_exists ${zpool}
 	then
-		zfs_encrypted_export_zpool ${zpool}
+		err 1 "Pool already imported"
 	fi
 
 	zfs_encrypted_geli_attach ${zpool}
@@ -105,8 +72,8 @@ zfs_encrypted_start_zpool(){
 
 zfs_encrypted_stop_zpool(){
 	zpool="$1"
-	zfs_encrypted_export_zpool ${zpool}
-	zfs_encrypted_geli_detach ${zpool}
+	# Set cachefile none to prevent automount on boot
+	zpool set cachefile=none ${zpool}
 }
 
 zfs_encrypted_start(){
